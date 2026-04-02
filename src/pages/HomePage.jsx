@@ -6,21 +6,13 @@ import { fetchMovers, fetchSummary, fetchWatchlist } from '../services/marketApi
 import { useMarketStore } from '../stores/marketStore.js';
 import { useMarketSocket } from '../hooks/useMarketSocket.js';
 
-const statusClassMap = {
-  connected: 'bg-emerald-500',
-  connecting: 'bg-amber-400',
-  disconnected: 'bg-slate-400',
-  error: 'bg-rose-500',
-};
-
 function HomePage() {
   const [activeMarket, setActiveMarket] = useState('domestic');
+  const [now, setNow] = useState(() => Date.now());
   const setSummary = useMarketStore((state) => state.setSummary);
   const setWatchlist = useMarketStore((state) => state.setWatchlist);
   const setMovers = useMarketStore((state) => state.setMovers);
   const connectionStatus = useMarketStore((state) => state.connectionStatus);
-  const updatedAt = useMarketStore((state) => state.summary.updatedAt);
-  const summary = useMarketStore((state) => state.summary);
 
   useMarketSocket();
 
@@ -82,51 +74,56 @@ function HomePage() {
     };
   }, [connectionStatus, setSummary, setWatchlist, setMovers]);
 
-  const selectedMarketLabel = useMemo(
-    () => (activeMarket === 'domestic' ? '국내 시장' : '해외 시장'),
-    [activeMarket]
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, []);
+
+  const connectionDotClass = connectionStatus === 'connected' ? 'bg-emerald-500' : 'bg-rose-500';
+  const kstTimeLabel = useMemo(
+    () =>
+      new Date(now).toLocaleTimeString('ko-KR', {
+        timeZone: 'Asia/Seoul',
+        hour12: false,
+      }),
+    [now]
   );
-
-  const selectedMarketUpdatedAt = useMemo(() => {
-    if (activeMarket === 'domestic') {
-      return summary.domestic.indices?.[0]?.updatedAt ?? updatedAt;
-    }
-
-    return summary.overseas.indices?.[0]?.updatedAt ?? updatedAt;
-  }, [activeMarket, summary.domestic.indices, summary.overseas.indices, updatedAt]);
 
   return (
     <main className="dashboard-shell">
-      <header className="panel flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="market-toggle-wrap">
-            <button
-              type="button"
-              className={`market-toggle-btn ${activeMarket === 'domestic' ? 'is-active-domestic' : ''}`}
-              onClick={() => setActiveMarket('domestic')}
-            >
-              국내 시장
-            </button>
-            <button
-              type="button"
-              className={`market-toggle-btn ${activeMarket === 'overseas' ? 'is-active-overseas' : ''}`}
-              onClick={() => setActiveMarket('overseas')}
-            >
-              해외 시장
-            </button>
+      <header className="panel p-4 sm:p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <div className="market-toggle-wrap shrink-0">
+              <button
+                type="button"
+                className={`market-toggle-btn ${activeMarket === 'domestic' ? 'is-active-domestic' : ''}`}
+                onClick={() => setActiveMarket('domestic')}
+              >
+                국내 시장
+              </button>
+              <button
+                type="button"
+                className={`market-toggle-btn ${activeMarket === 'overseas' ? 'is-active-overseas' : ''}`}
+                onClick={() => setActiveMarket('overseas')}
+              >
+                해외 시장
+              </button>
+            </div>
+            <h1 className="truncate text-xl font-extrabold text-slate-900 sm:text-2xl">주식/시황 대시보드</h1>
           </div>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Stock Pulse Console</p>
-          <h1 className="mt-1 text-2xl font-extrabold text-slate-900 sm:text-3xl">준실시간 주식/시황 대시보드</h1>
-          <p className="mt-2 text-sm font-semibold text-slate-600">{selectedMarketLabel} 화면 표시 중</p>
+
+          <div className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2">
+            <span className={`h-2.5 w-2.5 rounded-full ${connectionDotClass}`} />
+            <p className="text-sm font-semibold text-slate-700">한국시간 {kstTimeLabel}</p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 rounded-2xl bg-slate-100 px-4 py-2">
-          <span className={`h-2.5 w-2.5 rounded-full ${statusClassMap[connectionStatus] ?? statusClassMap.disconnected}`} />
-          <p className="text-sm font-semibold text-slate-700">WS: {connectionStatus}</p>
-          <p className="text-xs text-slate-500">
-            {selectedMarketUpdatedAt ? new Date(selectedMarketUpdatedAt).toLocaleTimeString('ko-KR') : '초기 로딩 중'}
-          </p>
-        </div>
       </header>
 
       <GlobalMarketBar />

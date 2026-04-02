@@ -32,6 +32,53 @@ const CHART_SYMBOLS = new Set([
   'KOSPI_NIGHT_FUT',
   'KOSDAQ_NIGHT_FUT',
 ]);
+const US_INDEX_SYMBOLS = new Set(['NASDAQ', 'S&P500']);
+const US_ET_SESSION_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York',
+  weekday: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
+const getUsSessionInfo = (dateInput = Date.now()) => {
+  const date = new Date(dateInput);
+  const safeDate = Number.isFinite(date.getTime()) ? date : new Date();
+  const parts = US_ET_SESSION_FORMATTER.formatToParts(safeDate);
+
+  const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const weekday = map.weekday;
+  const hour = Number(map.hour ?? 0);
+  const minute = Number(map.minute ?? 0);
+  const minutes = hour * 60 + minute;
+  const isWeekend = weekday === 'Sat' || weekday === 'Sun';
+
+  if (isWeekend) {
+    return { key: 'closed', label: '휴장' };
+  }
+
+  if (minutes >= 4 * 60 && minutes < 9 * 60 + 30) {
+    return { key: 'premarket', label: '프리장' };
+  }
+
+  if (minutes >= 9 * 60 + 30 && minutes < 16 * 60) {
+    return { key: 'regular', label: '주간거래' };
+  }
+
+  if (minutes >= 16 * 60 && minutes < 20 * 60) {
+    return { key: 'afterhours', label: '애프터장' };
+  }
+
+  return { key: 'closed', label: '휴장' };
+};
+
+const formatExtendedSessionText = (item, usSession) => {
+  if (!US_INDEX_SYMBOLS.has(item?.symbol)) {
+    return '';
+  }
+
+  return ` (${usSession.label} ${toSigned(item?.change ?? 0)} (${toSigned(item?.changePct ?? 0)}%))`;
+};
 const TIMEFRAME_OPTIONS = [
   { key: '5m', label: '5분봉' },
   { key: 'day', label: '일봉' },
@@ -192,6 +239,7 @@ const buildChartModel = (candles = [], ma5 = [], ma20 = []) => {
 
 function GlobalMarketBar() {
   const summary = useMarketStore((state) => state.summary);
+  const [sessionClock, setSessionClock] = useState(() => Date.now());
   const [selectedSymbol, setSelectedSymbol] = useState('KOSPI');
   const [timeframe, setTimeframe] = useState('day');
   const [range, setRange] = useState('3m');
@@ -226,6 +274,17 @@ function GlobalMarketBar() {
     () => chartTargets.find((item) => item.symbol === selectedSymbol) ?? null,
     [chartTargets, selectedSymbol]
   );
+  const usSession = useMemo(() => getUsSessionInfo(sessionClock), [sessionClock]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSessionClock(Date.now());
+    }, 30000);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     if (!chartTargets.length) {
@@ -323,7 +382,6 @@ function GlobalMarketBar() {
     () => buildChartModel(chartData.candles, chartData.ma5, chartData.ma20),
     [chartData.candles, chartData.ma5, chartData.ma20]
   );
-
   const isUp = (selectedQuote?.changePct ?? 0) >= 0;
   const chartButtons = chartTargets;
 
@@ -359,6 +417,7 @@ function GlobalMarketBar() {
                   <p className="mt-2 text-lg font-extrabold text-slate-900">{toPrice(item.price ?? 0, 2)}</p>
                   <p className={`text-xs font-bold ${itemIsUp ? 'text-rose-600' : 'text-blue-600'}`}>
                     {toSigned(item.change ?? 0)} ({toSigned(item.changePct ?? 0)}%)
+                    {formatExtendedSessionText(item, usSession)}
                   </p>
                 </button>
               );

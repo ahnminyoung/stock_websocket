@@ -116,11 +116,25 @@ const quoteFromNaver = ({ symbol, name, raw, scale = 1, updatedAt }) => {
   const rawPrice = parseNumber(raw.nv);
   const rawChange = parseNumber(raw.cv);
   const hasPrevClose = raw.pcv !== undefined && raw.pcv !== null;
+  const directionCode = String(raw.rf ?? '').trim();
+  const directionSign = directionCode === '5' ? -1 : directionCode === '2' ? 1 : 0;
 
   const price = rawPrice / scale;
-  const prevClose = hasPrevClose ? parseNumber(raw.pcv) / scale : (rawPrice - rawChange) / scale;
-  const change = parseNumber(raw.cv) / scale;
-  const changePct = parseNumber(raw.cr, prevClose ? (change / prevClose) * 100 : 0);
+  const normalizedRawChange =
+    rawChange < 0
+      ? rawChange
+      : directionSign !== 0
+        ? rawChange * directionSign
+        : rawChange;
+
+  const prevClose = hasPrevClose
+    ? parseNumber(raw.pcv) / scale
+    : (rawPrice - normalizedRawChange) / scale;
+  const change = hasPrevClose ? price - prevClose : normalizedRawChange / scale;
+  const fallbackPct = prevClose ? (change / prevClose) * 100 : 0;
+  const rawPct = parseNumber(raw.cr, Math.abs(fallbackPct));
+  const normalizedRawPct = directionSign !== 0 ? Math.abs(rawPct) * directionSign : rawPct;
+  const changePct = hasPrevClose ? fallbackPct : normalizedRawPct || fallbackPct;
 
   return {
     symbol,
