@@ -2,6 +2,7 @@ import { MarketProvider } from './marketProvider.js';
 import {
   DOMESTIC_HEATMAP,
   DOMESTIC_INDICES,
+  DOMESTIC_NIGHT_FUTURES,
   DOMESTIC_MOVERS_POOL,
   DOMESTIC_WATCHLIST,
   FX_QUOTES,
@@ -10,6 +11,13 @@ import {
   OVERSEAS_MOVERS_POOL,
   OVERSEAS_WATCHLIST,
 } from '../config/symbols.js';
+
+const CHART_BASE_PRICE_MAP = Object.fromEntries(
+  [...DOMESTIC_INDICES, ...OVERSEAS_INDICES, ...FX_QUOTES, ...DOMESTIC_NIGHT_FUTURES].map((item) => [
+    item.symbol,
+    item.basePrice,
+  ])
+);
 
 export class MockProvider extends MarketProvider {
   constructor() {
@@ -71,6 +79,10 @@ export class MockProvider extends MarketProvider {
 
   async fetchSummary() {
     const domesticIndices = DOMESTIC_INDICES.map((item) => this.evolve(item));
+    const domesticNightFutures = DOMESTIC_NIGHT_FUTURES.map((item) => ({
+      ...this.evolve(item),
+      isProxy: Boolean(item.isProxy),
+    }));
     const overseasIndices = OVERSEAS_INDICES.map((item) => this.evolve(item));
     const fx = this.evolve(FX_QUOTES[0]);
 
@@ -81,6 +93,7 @@ export class MockProvider extends MarketProvider {
       globalBar: [...domesticIndices, ...overseasIndices, fx],
       domestic: {
         indices: domesticIndices,
+        nightFutures: domesticNightFutures,
         heatmap: domesticHeatmap,
       },
       overseas: {
@@ -115,6 +128,98 @@ export class MockProvider extends MarketProvider {
       domestic: this.pickMovers(DOMESTIC_MOVERS_POOL),
       overseas: this.pickMovers(OVERSEAS_MOVERS_POOL),
       updatedAt: new Date().toISOString(),
+    };
+  }
+
+  aggregateCandles(candles, timeframe) {
+    if (timeframe === 'day') {
+      return candles;
+    }
+
+    const groupSize = timeframe === 'week' ? 5 : 22;
+    const grouped = [];
+
+    for (let i = 0; i < candles.length; i += groupSize) {
+      const chunk = candles.slice(i, i + groupSize);
+      if (!chunk.length) {
+        continue;
+      }
+
+      grouped.push({
+        ts: chunk.at(-1).ts,
+        open: chunk[0].open,
+        high: Math.max(...chunk.map((item) => item.high)),
+        low: Math.min(...chunk.map((item) => item.low)),
+        close: chunk.at(-1).close,
+        volume: Math.round(chunk.reduce((sum, item) => sum + (item.volume ?? 0), 0)),
+      });
+    }
+
+    return grouped;
+  }
+
+  movingAverage(candles, period) {
+    const values = candles.map((_, index) => {
+      if (index + 1 < period) {
+        return null;
+      }
+
+      const slice = candles.slice(index - period + 1, index + 1);
+      const sum = slice.reduce((acc, item) => acc + (item.close ?? 0), 0);
+      return Number((sum / period).toFixed(2));
+    });
+
+    return values;
+  }
+
+  async fetchChart({ symbol = 'KOSPI', timeframe = 'day', range = '3m' } = {}) {
+    const basePrice = CHART_BASE_PRICE_MAP[symbol] ?? 1000;
+    const pointsByRange = {
+      '1d': 72,
+      '3m': 70,
+      '1y': 220,
+      '3y': 360,
+      '10y': 560,
+    };
+    const length = pointsByRange[range] ?? 220;
+    const source = [];
+    let current = basePrice * 0.82;
+
+    for (let i = 0; i < length; i += 1) {
+      const drift = i < length * 0.45 ? 0.0012 : i < length * 0.7 ? -0.0007 : 0.0009;
+      const wave = Math.sin(i / 6 + (symbol === 'KOSPI' ? 0.7 : 1.5)) * 0.0022;
+      current = Math.max(1, current * (1 + drift + wave + (Math.random() - 0.5) * 0.0018));
+      source.push(current);
+    }
+
+    const scale = basePrice / (source.at(-1) ?? basePrice);
+    const normalized = source.map((value) => value * scale);
+    const candles = normalized.map((close, index) => {
+      const prevClose = normalized[Math.max(index - 1, 0)];
+      const open = prevClose;
+      const high = Math.max(open, close) * (1 + 0.0015);
+      const low = Math.min(open, close) * (1 - 0.0015);
+      const ts = Date.now() - (length - index - 1) * (timeframe === '5m' ? 5 * 60 * 1000 : 24 * 60 * 60 * 1000);
+      return {
+        ts,
+        open: Number(open.toFixed(2)),
+        high: Number(high.toFixed(2)),
+        low: Number(low.toFixed(2)),
+        close: Number(close.toFixed(2)),
+        volume: Math.round(200000 + Math.random() * 800000),
+      };
+    });
+
+    const aggregated = timeframe === '5m' ? candles : this.aggregateCandles(candles, timeframe);
+    return {
+      symbol,
+      timeframe,
+      range,
+      candles: aggregated,
+      ma5: this.movingAverage(aggregated, 5),
+      ma20: this.movingAverage(aggregated, 20),
+      updatedAt: new Date().toISOString(),
+      source: 'mock',
     };
   }
 }

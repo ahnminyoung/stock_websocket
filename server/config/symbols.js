@@ -3,6 +3,26 @@ export const DOMESTIC_INDICES = [
   { symbol: 'KOSDAQ', name: '코스닥', basePrice: 912.34, volatility: 0.005 },
 ];
 
+export const DOMESTIC_NIGHT_FUTURES = [
+  {
+    symbol: 'KOSPI_NIGHT_FUT',
+    name: '코스피200 야간선물',
+    basePrice: 812.05,
+    volatility: 0.006,
+    naverCode: 'FUT',
+    scale: 100,
+  },
+  {
+    symbol: 'KOSDAQ_NIGHT_FUT',
+    name: '코스닥 야간선물 (대체지표)',
+    basePrice: 1116.18,
+    volatility: 0.0065,
+    naverCode: 'KOSDAQ',
+    scale: 100,
+    isProxy: true,
+  },
+];
+
 export const OVERSEAS_INDICES = [
   { symbol: 'NASDAQ', name: '나스닥', basePrice: 18280.45, volatility: 0.0035 },
   { symbol: 'S&P500', name: 'S&P 500', basePrice: 5268.72, volatility: 0.0025 },

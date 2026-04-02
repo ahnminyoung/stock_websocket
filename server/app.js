@@ -12,6 +12,7 @@ const PORT = Number(process.env.PORT ?? 4000);
 const bootstrap = async () => {
   const app = express();
   const server = http.createServer(app);
+  const { provider, name: providerName } = createMarketProvider();
 
   app.use(express.json());
 
@@ -19,11 +20,10 @@ const bootstrap = async () => {
     res.json({ ok: true, timestamp: new Date().toISOString() });
   });
 
-  app.use('/api/market', createMarketRoutes({ cache: marketCache }));
+  app.use('/api/market', createMarketRoutes({ cache: marketCache, provider }));
 
   const socketServer = initializeSocketServer(server);
   const broadcaster = createMarketBroadcaster(socketServer);
-  const { provider, name: providerName } = createMarketProvider();
   const scheduler = createMarketScheduler({
     cache: marketCache,
     broadcaster,

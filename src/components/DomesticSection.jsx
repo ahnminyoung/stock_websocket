@@ -6,6 +6,7 @@ import { useMarketStore } from '../stores/marketStore.js';
 
 function DomesticSection() {
   const indices = useMarketStore((state) => state.summary.domestic.indices);
+  const nightFutures = useMarketStore((state) => state.summary.domestic.nightFutures);
   const heatmap = useMarketStore((state) => state.summary.domestic.heatmap);
   const watchlist = useMarketStore((state) => state.watchlist.domestic);
   const movers = useMarketStore((state) => state.movers.domestic);
@@ -22,6 +23,23 @@ function DomesticSection() {
 
       <div className="grid gap-4 lg:grid-cols-12">
         <div className="grid gap-4 lg:col-span-7">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800">국내 야간선물</h3>
+              <p className="text-[11px] font-semibold text-amber-700">REALTIME</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {nightFutures.map((item) => (
+                <MarketCard key={item.symbol} item={item} />
+              ))}
+            </div>
+            {nightFutures.some((item) => item.isProxy) ? (
+              <p className="mt-2 text-[11px] font-medium text-slate-500">
+                코스닥 야간선물은 현재 코스닥 현물지수 기반 대체지표로 제공합니다.
+              </p>
+            ) : null}
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             {indices.map((item) => (
               <MarketCard key={item.symbol} item={item} />

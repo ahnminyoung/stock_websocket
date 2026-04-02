@@ -10,3 +10,9 @@ const unwrap = (response) => response.data?.data;
 export const fetchSummary = async () => unwrap(await api.get('/summary'));
 export const fetchWatchlist = async () => unwrap(await api.get('/watchlist'));
 export const fetchMovers = async () => unwrap(await api.get('/movers'));
+export const fetchChart = async ({ symbol, timeframe, range }) =>
+  unwrap(
+    await api.get('/chart', {
+      params: { symbol, timeframe, range },
+    })
+  );

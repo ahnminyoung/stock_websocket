@@ -4,6 +4,7 @@ const defaultSummary = {
   globalBar: [],
   domestic: {
     indices: [],
+    nightFutures: [],
     heatmap: [],
   },
   overseas: {

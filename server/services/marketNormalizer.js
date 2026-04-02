@@ -18,6 +18,7 @@ export const normalizeSummary = (payload) => ({
   globalBar: (payload.globalBar ?? []).map(normalizeQuote),
   domestic: {
     indices: (payload.domestic?.indices ?? []).map(normalizeQuote),
+    nightFutures: (payload.domestic?.nightFutures ?? []).map(normalizeQuote),
     heatmap: (payload.domestic?.heatmap ?? []).map(normalizeQuote),
   },
   overseas: {

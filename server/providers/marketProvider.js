@@ -10,4 +10,8 @@ export class MarketProvider {
   async fetchMovers() {
     throw new Error('fetchMovers must be implemented by provider');
   }
+
+  async fetchChart() {
+    throw new Error('fetchChart must be implemented by provider');
+  }
 }
