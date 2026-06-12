@@ -96,8 +96,27 @@ function HomePage() {
     [now]
   );
 
+  const isThemeView = activeView === 'theme';
+
+  useEffect(() => {
+    if (isThemeView) {
+      document.documentElement.style.overflow = 'auto';
+      document.body.style.overflow = 'auto';
+    } else {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    };
+  }, [isThemeView]);
+
   return (
-    <main className="dashboard-shell">
+    <main
+      className="dashboard-shell"
+      style={isThemeView ? { height: 'auto', overflow: 'visible' } : {}}
+    >
       <header className="panel shrink-0 px-4 py-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap min-w-0 items-center gap-2">
@@ -118,7 +137,7 @@ function HomePage() {
               </button>
               <button
                 type="button"
-                className={`market-toggle-btn ${activeView === 'theme' ? 'is-active-domestic' : ''}`}
+                className={`market-toggle-btn ${isThemeView ? 'is-active-domestic' : ''}`}
                 onClick={() => setActiveView('theme')}
               >
                 테마 히트맵
@@ -133,18 +152,24 @@ function HomePage() {
         </div>
       </header>
 
-      <div
-        className="flex flex-col gap-2.5 lg:flex-1 lg:min-h-0 lg:grid"
-        style={{ gridTemplateRows: '2fr 3fr' }}
-      >
-        <GlobalMarketBar />
-        {activeView === 'theme'
-          ? <ThemeHeatmap />
-          : activeMarket === 'domestic'
-            ? <DomesticSection />
-            : <OverseasSection />
-        }
-      </div>
+      {isThemeView ? (
+        /* 테마 히트맵 뷰: GlobalMarketBar 컴팩트 고정 높이 + 히트맵 자연 높이 스크롤 */
+        <div className="flex flex-col gap-2.5">
+          <div style={{ height: '300px' }}>
+            <GlobalMarketBar />
+          </div>
+          <ThemeHeatmap />
+        </div>
+      ) : (
+        /* 국내/해외 시장 뷰: 기존 고정 높이 2:3 그리드 */
+        <div
+          className="flex flex-col gap-2.5 lg:flex-1 lg:min-h-0 lg:grid"
+          style={{ gridTemplateRows: '2fr 3fr' }}
+        >
+          <GlobalMarketBar />
+          {activeMarket === 'domestic' ? <DomesticSection /> : <OverseasSection />}
+        </div>
+      )}
     </main>
   );
 }

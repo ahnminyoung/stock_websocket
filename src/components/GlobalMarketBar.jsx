@@ -386,16 +386,16 @@ function GlobalMarketBar() {
   const chartButtons = chartTargets;
 
   return (
-    <section className="panel p-3 flex flex-col overflow-hidden lg:h-full">
-      <div className="grid gap-3 lg:flex-1 lg:min-h-0 lg:grid-cols-12">
+    <section className="panel p-2 flex flex-col overflow-hidden lg:h-full">
+      <div className="grid gap-2 lg:flex-1 lg:min-h-0 lg:grid-cols-12">
         {/* 글로벌 시장 요약 */}
-        <div className="lg:col-span-7 flex flex-col lg:min-h-0">
-          <div className="mb-2 flex items-center justify-between shrink-0">
-            <h2 className="text-base font-bold text-ink">글로벌 시장 요약</h2>
-            <p className="text-xs text-ink-muted">야간선물 포함 실시간 스트리밍</p>
+        <div className="lg:col-span-4 flex flex-col lg:min-h-0">
+          <div className="mb-1.5 flex items-center justify-between shrink-0">
+            <h2 className="text-sm font-bold text-ink">글로벌 시장 요약</h2>
+            <p className="text-[11px] text-ink-muted">야간선물 포함 실시간 스트리밍</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 content-start lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
+          <div className="grid grid-cols-2 gap-1.5 md:grid-cols-3 content-start lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
             {globalItems.map((item) => {
               const active = item.symbol === selectedSymbol && CHART_SYMBOLS.has(item.symbol);
               const itemIsUp = (item.changePct ?? 0) >= 0;
@@ -404,7 +404,7 @@ function GlobalMarketBar() {
                 <button
                   key={item.symbol}
                   type="button"
-                  className={`rounded-2xl border bg-cream-50 px-2.5 py-2 text-left shadow-sm transition hover:-translate-y-0.5 ${
+                  className={`rounded-xl border bg-cream-50 px-2 py-1.5 text-left shadow-sm transition hover:-translate-y-0.5 ${
                     active ? 'border-clay-500 ring-2 ring-clay-200' : 'border-cream-300'
                   }`}
                   onClick={() => {
@@ -427,7 +427,7 @@ function GlobalMarketBar() {
         </div>
 
         {/* 차트 */}
-        <div className="flex flex-col rounded-2xl border border-cream-300 bg-cream-50 p-3 lg:col-span-5 lg:min-h-0">
+        <div className="flex flex-col rounded-2xl border border-cream-300 bg-cream-50 p-3 lg:col-span-8 lg:min-h-0">
           <div className="shrink-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-clay-600">실시간 인덱스 차트</p>
             <h3 className="mt-0.5 text-sm font-bold text-ink">
