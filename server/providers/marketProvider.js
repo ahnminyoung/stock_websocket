@@ -14,4 +14,8 @@ export class MarketProvider {
   async fetchChart() {
     throw new Error('fetchChart must be implemented by provider');
   }
+
+  async fetchStockDetail() {
+    throw new Error('fetchStockDetail must be implemented by provider');
+  }
 }

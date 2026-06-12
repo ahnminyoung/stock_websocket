@@ -16,3 +16,6 @@ export const fetchChart = async ({ symbol, timeframe, range }) =>
       params: { symbol, timeframe, range },
     })
   );
+
+export const fetchStockDetail = async (code) =>
+  unwrap(await api.get(`/stock/${code}`));

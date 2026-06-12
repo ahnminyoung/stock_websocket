@@ -1,5 +1,7 @@
 import axios from 'axios';
+import iconv from 'iconv-lite';
 import { MarketProvider } from './marketProvider.js';
+import { generateStockDetail } from './stockDetailGenerator.js';
 import {
   DOMESTIC_HEATMAP,
   DOMESTIC_INDICES,
@@ -11,6 +13,7 @@ import {
   OVERSEAS_INDICES,
   OVERSEAS_MOVERS_POOL,
   OVERSEAS_WATCHLIST,
+  THEME_STOCKS,
 } from '../config/symbols.js';
 
 const NAVER_POLLING_URL = 'https://polling.finance.naver.com/api/realtime';
@@ -115,11 +118,12 @@ const toOverseasStooqCode = (symbol) => `${symbol.toLowerCase()}.us`;
 const quoteFromNaver = ({ symbol, name, raw, scale = 1, updatedAt }) => {
   const rawPrice = parseNumber(raw.nv);
   const rawChange = parseNumber(raw.cv);
-  const hasPrevClose = raw.pcv !== undefined && raw.pcv !== null;
   const directionCode = String(raw.rf ?? '').trim();
   const directionSign = directionCode === '5' ? -1 : directionCode === '2' ? 1 : 0;
 
   const price = rawPrice / scale;
+
+  // Use cv (change amount) + rf (direction) directly — pcv can be stale after corporate actions
   const normalizedRawChange =
     rawChange < 0
       ? rawChange
@@ -127,14 +131,12 @@ const quoteFromNaver = ({ symbol, name, raw, scale = 1, updatedAt }) => {
         ? rawChange * directionSign
         : rawChange;
 
-  const prevClose = hasPrevClose
-    ? parseNumber(raw.pcv) / scale
-    : (rawPrice - normalizedRawChange) / scale;
-  const change = hasPrevClose ? price - prevClose : normalizedRawChange / scale;
-  const fallbackPct = prevClose ? (change / prevClose) * 100 : 0;
+  const change = normalizedRawChange / scale;
+  const prevClose = price - change;
+  const fallbackPct = prevClose > 0 ? (change / prevClose) * 100 : 0;
   const rawPct = parseNumber(raw.cr, Math.abs(fallbackPct));
   const normalizedRawPct = directionSign !== 0 ? Math.abs(rawPct) * directionSign : rawPct;
-  const changePct = hasPrevClose ? fallbackPct : normalizedRawPct || fallbackPct;
+  const changePct = normalizedRawPct || fallbackPct;
 
   return {
     symbol,
@@ -440,12 +442,17 @@ export class RealProvider extends MarketProvider {
     const symbolParam = stooqCodes.map((code) => encodeURIComponent(code)).join('+');
     const url = `${STOOQ_QUOTE_URL}?s=${symbolParam}&f=sd2t2ohlcpv&h&e=csv`;
 
-    const { data } = await this.http.get(url, {
-      responseType: 'text',
-      transformResponse: [(payload) => payload],
-    });
+    try {
+      const { data } = await this.http.get(url, {
+        responseType: 'text',
+        transformResponse: [(payload) => payload],
+      });
 
-    return parseStooqCsv(data);
+      return parseStooqCsv(data);
+    } catch (error) {
+      console.warn(`[realProvider] stooq fetch failed (${error.message}); returning empty rows`);
+      return new Map();
+    }
   }
 
   async fetchDomesticIndices() {
@@ -1215,6 +1222,7 @@ export class RealProvider extends MarketProvider {
     const domesticIndicesPromise = this.fetchDomesticIndices();
     const domesticNightFuturesPromise = this.fetchDomesticNightFutures();
     const domesticHeatmapPromise = this.fetchDomesticStocks(DOMESTIC_HEATMAP);
+    const themeHeatmapPromise = this.fetchDomesticStocks(THEME_STOCKS);
 
     const overseasIndexMetas = OVERSEAS_INDICES.map((item) => ({
       ...item,
@@ -1227,12 +1235,19 @@ export class RealProvider extends MarketProvider {
 
     const stooqSummaryPromise = this.fetchOverseasByStooq([...overseasIndexMetas, ...OVERSEAS_HEATMAP, ...fxMetas]);
 
-    const [domesticIndices, domesticNightFutures, domesticHeatmap, stooqQuotes] = await Promise.all([
+    const [domesticIndices, domesticNightFutures, domesticHeatmap, themeQuotes, stooqQuotes] = await Promise.all([
       domesticIndicesPromise,
       domesticNightFuturesPromise,
       domesticHeatmapPromise,
+      themeHeatmapPromise,
       stooqSummaryPromise,
     ]);
+
+    const themeMetaMap = new Map(THEME_STOCKS.map((item) => [item.symbol, item]));
+    const themeHeatmap = themeQuotes.map((quote) => ({
+      ...quote,
+      themeId: themeMetaMap.get(quote.symbol)?.themeId ?? null,
+    }));
 
     const quoteMap = new Map(stooqQuotes.map((quote) => [quote.symbol, quote]));
 
@@ -1246,6 +1261,7 @@ export class RealProvider extends MarketProvider {
         indices: domesticIndices,
         nightFutures: domesticNightFutures,
         heatmap: domesticHeatmap,
+        themeHeatmap,
       },
       overseas: {
         indices: overseasIndices,
@@ -1288,5 +1304,165 @@ export class RealProvider extends MarketProvider {
       overseas: this.pickMovers(overseasQuotes),
       updatedAt: new Date().toISOString(),
     };
+  }
+
+  async fetchNaverStockNews(code, name) {
+    try {
+      const url = `https://finance.naver.com/item/news_news.naver?code=${code}&page=1&clusterId=`;
+      const { data } = await this.http.get(url, {
+        responseType: 'arraybuffer',
+        headers: { Referer: `https://finance.naver.com/item/news.naver?code=${code}` },
+      });
+      const text = iconv.decode(Buffer.from(data), 'euc-kr');
+
+      const linkMatches = [...text.matchAll(/article_id=(\d+)&office_id=(\d+)/g)];
+      const titleMatches = [...text.matchAll(/class="title"[^>]*>\s*<a[^>]+>([^<]+)/g)];
+      const sourceMatches = [...text.matchAll(/class="info">([^<]+)/g)];
+      const dateMatches = [...text.matchAll(/class="date">([^<]+)/g)];
+
+      const unescape = (s) =>
+        s.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+         .replace(/&gt;/g, '>').replace(/&hellip;/g, '…').replace(/&lsquo;/g, '‘')
+         .replace(/&rsquo;/g, '’').replace(/&ldquo;/g, '“').replace(/&rdquo;/g, '”')
+         .replace(/&middot;/g, '·').replace(/&nbsp;/g, ' ')
+         .replace(/&#\d+;/g, '').trim();
+
+      const items = titleMatches.map((m, i) => ({
+        title: unescape(m[1]),
+        source: sourceMatches[i]?.[1].trim() ?? '',
+        date: dateMatches[i]?.[1].trim() ?? '',
+        url: linkMatches[i]
+          ? `https://n.news.naver.com/mnews/article/${linkMatches[i][2]}/${linkMatches[i][1]}`
+          : null,
+      }));
+
+      // 네이버 종목 뉴스 1면에는 시황/관련주 묶음 기사가 섞여 있어 종목명이 제목에 있는 기사만 남긴다
+      const norm = (s) => s.replace(/\s+/g, '').toLowerCase();
+      const target = norm(name ?? '');
+      const related = target ? items.filter((item) => norm(item.title).includes(target)) : items;
+
+      return related.slice(0, 6);
+    } catch {
+      return null;
+    }
+  }
+
+  async fetchNaverStockMarket(code) {
+    try {
+      const { data } = await this.http.get(
+        `https://finance.naver.com/item/main.naver?code=${code}`,
+        {
+          responseType: 'arraybuffer',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            Referer: 'https://finance.naver.com/',
+          },
+        }
+      );
+      const text = Buffer.from(data).toString('utf-8');
+
+      // 52주 고저: 52주최고...<em>260,000</em>...<em>81,100</em>
+      const w52M = text.match(/52주최고[\s\S]{0,400}?<em>([\d,]+)<\/em>[\s\S]{0,60}?<em>([\d,]+)<\/em>/);
+      const w52High = w52M ? parseCommaNumber(w52M[1]) : null;
+      const w52Low  = w52M ? parseCommaNumber(w52M[2]) : null;
+
+      return { w52High, w52Low };
+    } catch (err) {
+      console.error('[provider] fetchNaverStockMarket:', err.message);
+      return null;
+    }
+  }
+
+  async fetchNaverFrgnData(code) {
+    try {
+      const { data } = await this.http.get(
+        `https://finance.naver.com/item/frgn.naver?code=${code}&searchType=trdval&sosok=&page=1`,
+        {
+          responseType: 'arraybuffer',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            Referer: `https://finance.naver.com/item/main.naver?code=${code}`,
+          },
+        }
+      );
+      const text = Buffer.from(data).toString('utf-8');
+
+      // Find the first data row: locate the span containing the date, then get enclosing <tr>
+      const dateSpanM = text.match(/<span class="tah p10 gray03">(\d{4}\.\d{2}\.\d{2})<\/span>/);
+      if (!dateSpanM) return null;
+      const dateIdx = text.indexOf(dateSpanM[0]);
+      const trStart = text.lastIndexOf('<tr', dateIdx);
+      const trEnd   = text.indexOf('</tr>', dateIdx);
+      if (trStart < 0 || trEnd < 0) return null;
+      const row = text.slice(trStart, trEnd + 5);
+
+      // Day close price: first td width="67" (class="num") with a plain integer span
+      const priceM = row.match(/width="67"[^>]*class="num"[^>]*><span[^>]*>([\d,]+)<\/span>/);
+      const dayClose = priceM ? parseCommaNumber(priceM[1]) : null;
+      if (!dayClose) return null;
+
+      // Institution net buy shares: td width="66" — match span text content specifically
+      const instM = row.match(/width="66"[^>]*class="num"[^>]*>[\s\S]*?<span[^>]*>([+-]?[\d,]+)<\/span>/);
+      const instShares = instM ? parseCommaNumber(instM[1]) : null;
+
+      // Foreign net buy shares: td width="80"
+      const frgnM = row.match(/width="80"[^>]*class="num"[^>]*>[\s\S]*?<span[^>]*>([+-]?[\d,]+)<\/span>/);
+      const frgnShares = frgnM ? parseCommaNumber(frgnM[1]) : null;
+
+      // Foreign holding ratio: td width="60" (contains %)
+      const ratioM = row.match(/width="60"[^>]*class="num"[^>]*>[\s\S]*?<span[^>]*>([\d.]+)%<\/span>/);
+      const foreignRatio = ratioM ? Number(ratioM[1]) : null;
+
+      if (instShares === null && frgnShares === null) return null;
+
+      const instFlow    = instShares !== null ? Math.round(instShares * dayClose) : null;
+      const foreignFlow = frgnShares !== null ? Math.round(frgnShares * dayClose) : null;
+      const retailFlow  = (instFlow !== null && foreignFlow !== null)
+        ? -(instFlow + foreignFlow)
+        : null;
+
+      return { foreignFlow, instFlow, retailFlow, foreignRatio };
+    } catch (err) {
+      console.error('[provider] fetchNaverFrgnData:', err.message);
+      return null;
+    }
+  }
+
+  async fetchStockDetail(code) {
+    const base = generateStockDetail(code);
+    if (!base) return null;
+    const stockCode = code.split('.')[0];
+
+    const [realNews, realMarket, realFrgn, stockRows] = await Promise.all([
+      this.fetchNaverStockNews(stockCode, base.name),
+      this.fetchNaverStockMarket(stockCode),
+      this.fetchNaverFrgnData(stockCode),
+      this.fetchNaverStockRows([stockCode]),
+    ]);
+
+    if (realNews?.length) base.news = realNews;
+
+    // Real-time price and market cap from polling API
+    const stockRow = stockRows?.get(stockCode);
+    if (stockRow) {
+      const price  = parseNumber(stockRow.nv);
+      const shares = parseNumber(stockRow.countOfListedStock);
+      if (price  > 0) base.currentPrice = price;
+      if (price > 0 && shares > 0) base.market.marketCap = Math.round(price * shares);
+    }
+
+    if (realMarket) {
+      if (realMarket.w52High) base.market.w52High = realMarket.w52High;
+      if (realMarket.w52Low)  base.market.w52Low  = realMarket.w52Low;
+    }
+
+    if (realFrgn) {
+      if (realFrgn.foreignFlow  !== null) base.market.foreignFlow  = realFrgn.foreignFlow;
+      if (realFrgn.instFlow     !== null) base.market.instFlow     = realFrgn.instFlow;
+      if (realFrgn.retailFlow   !== null) base.market.retailFlow   = realFrgn.retailFlow;
+      if (realFrgn.foreignRatio !== null) base.market.foreignRatio = realFrgn.foreignRatio;
+    }
+
+    return base;
   }
 }

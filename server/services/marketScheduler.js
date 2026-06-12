@@ -63,6 +63,7 @@ const interpolateSummary = (prevSummary, nextSummary, t) => {
         nowIso
       ),
       heatmap: nextSummary.domestic?.heatmap ?? [],
+      themeHeatmap: nextSummary.domestic?.themeHeatmap ?? [],
     },
     overseas: {
       ...nextSummary.overseas,
@@ -142,9 +143,9 @@ export const createMarketScheduler = ({ cache, broadcaster, provider = new MockP
 
   const preload = async () => {
     await Promise.all([
-      refreshSummary({ broadcast: false }),
-      refreshWatchlist({ broadcast: false }),
-      refreshMovers({ broadcast: false }),
+      safeRun(() => refreshSummary({ broadcast: false }))(),
+      safeRun(() => refreshWatchlist({ broadcast: false }))(),
+      safeRun(() => refreshMovers({ broadcast: false }))(),
     ]);
   };
 

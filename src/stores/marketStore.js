@@ -6,6 +6,7 @@ const defaultSummary = {
     indices: [],
     nightFutures: [],
     heatmap: [],
+    themeHeatmap: [],
   },
   overseas: {
     indices: [],

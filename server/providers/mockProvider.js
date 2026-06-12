@@ -1,4 +1,5 @@
 import { MarketProvider } from './marketProvider.js';
+import { generateStockDetail } from './stockDetailGenerator.js';
 import {
   DOMESTIC_HEATMAP,
   DOMESTIC_INDICES,
@@ -10,7 +11,9 @@ import {
   OVERSEAS_INDICES,
   OVERSEAS_MOVERS_POOL,
   OVERSEAS_WATCHLIST,
+  THEME_STOCKS,
 } from '../config/symbols.js';
+
 
 const CHART_BASE_PRICE_MAP = Object.fromEntries(
   [...DOMESTIC_INDICES, ...OVERSEAS_INDICES, ...FX_QUOTES, ...DOMESTIC_NIGHT_FUTURES].map((item) => [
@@ -88,6 +91,7 @@ export class MockProvider extends MarketProvider {
 
     const domesticHeatmap = DOMESTIC_HEATMAP.map((item) => this.evolve(item));
     const overseasHeatmap = OVERSEAS_HEATMAP.map((item) => this.evolve(item));
+    const themeHeatmap = THEME_STOCKS.map((item) => ({ ...this.evolve(item), themeId: item.themeId }));
 
     return {
       globalBar: [...domesticIndices, ...overseasIndices, fx],
@@ -95,6 +99,7 @@ export class MockProvider extends MarketProvider {
         indices: domesticIndices,
         nightFutures: domesticNightFutures,
         heatmap: domesticHeatmap,
+        themeHeatmap,
       },
       overseas: {
         indices: overseasIndices,
@@ -129,6 +134,15 @@ export class MockProvider extends MarketProvider {
       overseas: this.pickMovers(OVERSEAS_MOVERS_POOL),
       updatedAt: new Date().toISOString(),
     };
+  }
+
+  async fetchStockDetail(code) {
+    const sym = code.includes('.') ? code : `${code}.KS`;
+    const meta = THEME_STOCKS.find((s) => s.symbol === sym);
+    if (!meta) return null;
+    const state = this.state.get(meta.symbol);
+    const currentPrice = state ? state.price : meta.basePrice;
+    return generateStockDetail(code, currentPrice);
   }
 
   aggregateCandles(candles, timeframe) {

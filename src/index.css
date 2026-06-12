@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Lora:wght@500;600;700&family=Noto+Serif+KR:wght@500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -12,15 +12,26 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+}
+
+@media (min-width: 1024px) {
+  html,
+  body {
+    overflow: hidden;
+  }
+}
+
 body {
   margin: 0;
-  min-height: 100vh;
   font-family: 'IBM Plex Sans KR', sans-serif;
   background:
-    radial-gradient(circle at 10% 12%, rgba(239, 68, 68, 0.08), transparent 42%),
-    radial-gradient(circle at 90% 8%, rgba(37, 99, 235, 0.1), transparent 40%),
-    linear-gradient(165deg, #f8fafc 0%, #f5f8ff 46%, #eef4ff 100%);
-  color: #0f172a;
+    radial-gradient(circle at 12% 10%, rgba(217, 119, 87, 0.07), transparent 44%),
+    radial-gradient(circle at 88% 6%, rgba(193, 159, 106, 0.08), transparent 40%),
+    linear-gradient(165deg, #faf9f5 0%, #f5f3ec 50%, #f0eee6 100%);
+  color: #1f1e1d;
   line-height: 1.45;
 }
 
@@ -28,21 +39,34 @@ h1,
 h2,
 h3,
 h4 {
-  font-family: 'Manrope', 'IBM Plex Sans KR', sans-serif;
+  font-family: 'Lora', 'Noto Serif KR', serif;
+  letter-spacing: -0.01em;
 }
 
 .dashboard-shell {
   max-width: 1520px;
   margin: 0 auto;
-  padding: 24px 16px 44px;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 8px;
+}
+
+@media (min-width: 1024px) {
+  .dashboard-shell {
+    height: 100vh;
+    overflow: hidden;
+    padding: 10px 14px;
+    gap: 10px;
+  }
 }
 
 .panel {
   border-radius: 20px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(61, 57, 41, 0.12);
+  background: rgba(253, 252, 250, 0.94);
   backdrop-filter: blur(4px);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 24px rgba(61, 57, 41, 0.06);
 }
 
 .card-rise {
@@ -53,8 +77,8 @@ h4 {
   display: inline-flex;
   gap: 8px;
   border-radius: 9999px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(248, 250, 252, 0.95);
+  border: 1px solid rgba(61, 57, 41, 0.16);
+  background: rgba(240, 238, 230, 0.85);
   padding: 4px;
 }
 
@@ -62,27 +86,35 @@ h4 {
   border: 0;
   border-radius: 9999px;
   background: transparent;
-  color: #475569;
+  color: #6e6a5e;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  padding: 7px 14px;
+  padding: 5px 10px;
   transition: all 0.2s ease;
 }
 
+@media (min-width: 1024px) {
+  .market-toggle-btn {
+    font-size: 12px;
+    padding: 7px 14px;
+  }
+}
+
 .market-toggle-btn:hover {
-  background: rgba(226, 232, 240, 0.8);
+  background: rgba(232, 230, 220, 0.9);
+  color: #3d3929;
 }
 
 .market-toggle-btn.is-active-domestic {
-  background: #fee2e2;
-  color: #be123c;
-  box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.45);
+  background: #d97757;
+  color: #fcfbf8;
+  box-shadow: inset 0 0 0 1px rgba(157, 74, 47, 0.4);
 }
 
 .market-toggle-btn.is-active-overseas {
-  background: #dbeafe;
-  color: #1d4ed8;
-  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.45);
+  background: #3d3929;
+  color: #fcfbf8;
+  box-shadow: inset 0 0 0 1px rgba(31, 30, 29, 0.4);
 }

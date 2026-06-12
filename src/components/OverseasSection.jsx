@@ -1,37 +1,26 @@
-import MarketCard from './MarketCard.jsx';
-import WatchlistTable from './WatchlistTable.jsx';
-import MoversList from './MoversList.jsx';
 import HeatmapGrid from './HeatmapGrid.jsx';
+import MoversList from './MoversList.jsx';
 import { useMarketStore } from '../stores/marketStore.js';
 
 function OverseasSection() {
-  const indices = useMarketStore((state) => state.summary.overseas.indices);
   const heatmap = useMarketStore((state) => state.summary.overseas.heatmap);
-  const watchlist = useMarketStore((state) => state.watchlist.overseas);
   const movers = useMarketStore((state) => state.movers.overseas);
 
   return (
-    <section className="mt-8 rounded-3xl border border-blue-200 bg-gradient-to-br from-blue-50/70 via-white to-slate-50 p-4 sm:p-6">
-      <header className="mb-4 flex items-center justify-between gap-2">
+    <section className="flex flex-col rounded-3xl border border-cream-400 bg-gradient-to-br from-cream-200/80 via-cream-50 to-cream-100 p-3 lg:h-full lg:overflow-hidden">
+      <header className="mb-2.5 flex items-center justify-between gap-2 shrink-0">
         <div>
-          <h2 className="text-2xl font-extrabold text-slate-900">해외 시장</h2>
-          <p className="text-sm text-slate-600">NASDAQ / S&P500 중심 실시간 보드</p>
+          <h2 className="text-sm font-bold text-ink">해외 시장</h2>
+          <p className="text-[11px] text-ink-muted">NASDAQ / S&P500 실시간</p>
         </div>
-        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">OVERSEAS</span>
+        <span className="rounded-full bg-ink-soft px-2.5 py-0.5 text-[11px] font-semibold text-cream-100">OVERSEAS</span>
       </header>
 
-      <div className="grid gap-4 lg:grid-cols-12">
-        <div className="grid gap-4 lg:col-span-7">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {indices.map((item) => (
-              <MarketCard key={item.symbol} item={item} />
-            ))}
-          </div>
+      <div className="flex flex-col gap-3 lg:flex-1 lg:min-h-0 lg:grid lg:grid-cols-2">
+        <div className="lg:min-h-0 lg:overflow-hidden">
           <HeatmapGrid title="해외 히트맵" items={heatmap} />
         </div>
-
-        <div className="grid gap-4 lg:col-span-5">
-          <WatchlistTable title="해외 관심종목" items={watchlist} />
+        <div className="lg:min-h-0 lg:overflow-hidden">
           <MoversList title="해외 상위 종목" movers={movers} />
         </div>
       </div>

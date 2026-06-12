@@ -14,12 +14,18 @@ const normalizeMoversGroup = (group) => ({
   losers: (group.losers ?? []).map(normalizeQuote),
 });
 
+const normalizeThemeQuote = (quote) => ({
+  ...normalizeQuote(quote),
+  themeId: quote.themeId ?? null,
+});
+
 export const normalizeSummary = (payload) => ({
   globalBar: (payload.globalBar ?? []).map(normalizeQuote),
   domestic: {
     indices: (payload.domestic?.indices ?? []).map(normalizeQuote),
     nightFutures: (payload.domestic?.nightFutures ?? []).map(normalizeQuote),
     heatmap: (payload.domestic?.heatmap ?? []).map(normalizeQuote),
+    themeHeatmap: (payload.domestic?.themeHeatmap ?? []).map(normalizeThemeQuote),
   },
   overseas: {
     indices: (payload.overseas?.indices ?? []).map(normalizeQuote),

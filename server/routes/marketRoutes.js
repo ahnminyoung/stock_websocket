@@ -55,5 +55,17 @@ export const createMarketRoutes = ({ cache, provider }) => {
     }
   });
 
+  router.get('/stock/:code', async (req, res) => {
+    try {
+      const code = req.params.code.toUpperCase();
+      const data = await provider.fetchStockDetail(code);
+      if (!data) return res.status(404).json({ success: false, message: 'stock not found' });
+      return res.json({ success: true, data });
+    } catch (error) {
+      console.error('[routes] stock detail failed:', error.message);
+      return res.status(500).json({ success: false, message: 'failed to fetch stock detail' });
+    }
+  });
+
   return router;
 };

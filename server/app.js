@@ -1,5 +1,7 @@
 import express from 'express';
 import http from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { createMarketRoutes } from './routes/marketRoutes.js';
 import { initializeSocketServer } from './ws/socketServer.js';
 import { createMarketBroadcaster } from './services/marketBroadcaster.js';
@@ -7,6 +9,8 @@ import { createMarketScheduler } from './services/marketScheduler.js';
 import { marketCache } from './cache/marketCache.js';
 import { createMarketProvider } from './providers/providerFactory.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DIST_DIR = path.join(__dirname, '..', 'dist');
 const PORT = Number(process.env.PORT ?? 4000);
 
 const bootstrap = async () => {
@@ -15,12 +19,18 @@ const bootstrap = async () => {
   const { provider, name: providerName } = createMarketProvider();
 
   app.use(express.json());
+  app.use(express.static(DIST_DIR));
 
   app.get('/api/health', (req, res) => {
     res.json({ ok: true, timestamp: new Date().toISOString() });
   });
 
   app.use('/api/market', createMarketRoutes({ cache: marketCache, provider }));
+
+  // SPA fallback: any non-API route serves index.html
+  app.get(/^(?!\/api\/).*/, (req, res) => {
+    res.sendFile(path.join(DIST_DIR, 'index.html'));
+  });
 
   const socketServer = initializeSocketServer(server);
   const broadcaster = createMarketBroadcaster(socketServer);
